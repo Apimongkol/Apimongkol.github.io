@@ -249,6 +249,85 @@ describe('Portfolio standalone page', () => {
     });
   });
 
+  it('renders Work Experience as a responsive Date-Rail timeline with aligned desktop dates, stacked mobile dates, and active/past node distinction', async () => {
+    await withPage(DESKTOP_VIEWPORT, async (page) => {
+      const section = page.locator('#experience');
+      await section.waitFor({ state: 'visible' });
+
+      const desktop = await section.evaluate((el) => {
+        const items = Array.from(el.querySelectorAll('ol > li'));
+        const pairs = items.map((li) => {
+          const time = li.querySelector('time');
+          const title = li.querySelector('h3');
+          return {
+            timeText: time ? time.innerText.trim() : null,
+            dateRect: time ? time.getBoundingClientRect().toJSON() : null,
+            titleRect: title ? title.getBoundingClientRect().toJSON() : null,
+          };
+        });
+        const activeNode = el.querySelector('[data-timeline-node="active"]');
+        const pastNode = el.querySelector('[data-timeline-node="past"]');
+        return {
+          itemCount: items.length,
+          pairs,
+          activeBg: activeNode ? getComputedStyle(activeNode).backgroundColor : null,
+          pastBg: pastNode ? getComputedStyle(pastNode).backgroundColor : null,
+        };
+      });
+
+      assert.equal(desktop.itemCount, 2, 'Expected 2 timeline items in #experience <ol>');
+      for (const pair of desktop.pairs) {
+        assert.ok(pair.dateRect && pair.titleRect, 'Each timeline item must have <time> and <h3>');
+        assert.ok(
+          pair.dateRect.right <= pair.titleRect.left,
+          `Desktop: <time> "${pair.timeText}" right (${pair.dateRect.right}) must sit strictly left of <h3> left (${pair.titleRect.left})`
+        );
+      }
+
+      const [first, second] = desktop.pairs;
+      assert.ok(
+        Math.abs(first.dateRect.right - second.dateRect.right) <= 2,
+        `Desktop: <time> right edges must align (${first.dateRect.right} vs ${second.dateRect.right})`
+      );
+
+      assert.ok(desktop.activeBg, 'Active timeline node [data-timeline-node="active"] must exist');
+      assert.ok(desktop.pastBg, 'Past timeline node [data-timeline-node="past"] must exist');
+      assert.notEqual(
+        desktop.activeBg,
+        desktop.pastBg,
+        `Active node backgroundColor (${desktop.activeBg}) must differ from past node (${desktop.pastBg})`
+      );
+    });
+
+    await withPage(MOBILE_VIEWPORT, async (page) => {
+      const section = page.locator('#experience');
+      await section.waitFor({ state: 'visible' });
+
+      const mobilePairs = await section.evaluate((el) =>
+        Array.from(el.querySelectorAll('ol > li')).map((li) => {
+          const time = li.querySelector('time');
+          const title = li.querySelector('h3');
+          return {
+            timeText: time ? time.innerText.trim() : null,
+            dateRect: time ? time.getBoundingClientRect().toJSON() : null,
+            titleRect: title ? title.getBoundingClientRect().toJSON() : null,
+          };
+        })
+      );
+
+      assert.equal(mobilePairs.length, 2, 'Expected 2 timeline items in #experience <ol> on mobile');
+      for (const pair of mobilePairs) {
+        assert.ok(pair.dateRect && pair.titleRect, 'Each mobile timeline item must have <time> and <h3>');
+        assert.ok(
+          pair.dateRect.bottom <= pair.titleRect.top,
+          `Mobile: <time> "${pair.timeText}" bottom (${pair.dateRect.bottom}) must sit above <h3> top (${pair.titleRect.top})`
+        );
+      }
+
+      await assertNoHorizontalOverflow(page, 'Mobile Work Experience Date-Rail');
+    });
+  });
+
   it('renders Activities card with all three activities newest-first, dates, locations, and descriptions', async () => {
     await withPage(DESKTOP_VIEWPORT, async (page) => {
       const section = page.locator('#activities');
@@ -279,6 +358,82 @@ describe('Portfolio standalone page', () => {
 
       assert.match(text, /March 2023/);
       assert.match(text, /Ban Samrong School, Ubon Ratchathani/);
+    });
+  });
+
+  it('renders Activities as a responsive Date-Rail timeline with aligned desktop dates, stacked mobile dates, and neutral past nodes', async () => {
+    await withPage(DESKTOP_VIEWPORT, async (page) => {
+      const section = page.locator('#activities');
+      await section.waitFor({ state: 'visible' });
+
+      const desktop = await section.evaluate((el) => {
+        const items = Array.from(el.querySelectorAll('ol > li'));
+        const pairs = items.map((li) => {
+          const time = li.querySelector('time');
+          const title = li.querySelector('h3');
+          return {
+            timeText: time ? time.innerText.trim() : null,
+            dateRect: time ? time.getBoundingClientRect().toJSON() : null,
+            titleRect: title ? title.getBoundingClientRect().toJSON() : null,
+          };
+        });
+        const activeNodes = el.querySelectorAll('[data-timeline-node="active"]').length;
+        const pastNodes = el.querySelectorAll('[data-timeline-node="past"]').length;
+        return {
+          itemCount: items.length,
+          pairs,
+          activeNodes,
+          pastNodes,
+        };
+      });
+
+      assert.equal(desktop.itemCount, 3, 'Expected 3 timeline items in #activities <ol>');
+      assert.equal(desktop.activeNodes, 0, 'Expected 0 active timeline nodes in #activities');
+      assert.equal(desktop.pastNodes, 3, 'Expected 3 past timeline nodes [data-timeline-node="past"] in #activities');
+
+      for (const pair of desktop.pairs) {
+        assert.ok(pair.dateRect && pair.titleRect, 'Each timeline item must have <time> and <h3>');
+        assert.ok(
+          pair.dateRect.right <= pair.titleRect.left,
+          `Desktop: <time> "${pair.timeText}" right (${pair.dateRect.right}) must sit strictly left of <h3> left (${pair.titleRect.left})`
+        );
+      }
+
+      const firstRight = desktop.pairs[0].dateRect.right;
+      for (const pair of desktop.pairs.slice(1)) {
+        assert.ok(
+          Math.abs(firstRight - pair.dateRect.right) <= 2,
+          `Desktop: <time> right edges must align (${firstRight} vs ${pair.dateRect.right})`
+        );
+      }
+    });
+
+    await withPage(MOBILE_VIEWPORT, async (page) => {
+      const section = page.locator('#activities');
+      await section.waitFor({ state: 'visible' });
+
+      const mobilePairs = await section.evaluate((el) =>
+        Array.from(el.querySelectorAll('ol > li')).map((li) => {
+          const time = li.querySelector('time');
+          const title = li.querySelector('h3');
+          return {
+            timeText: time ? time.innerText.trim() : null,
+            dateRect: time ? time.getBoundingClientRect().toJSON() : null,
+            titleRect: title ? title.getBoundingClientRect().toJSON() : null,
+          };
+        })
+      );
+
+      assert.equal(mobilePairs.length, 3, 'Expected 3 timeline items in #activities <ol> on mobile');
+      for (const pair of mobilePairs) {
+        assert.ok(pair.dateRect && pair.titleRect, 'Each mobile timeline item must have <time> and <h3>');
+        assert.ok(
+          pair.dateRect.bottom <= pair.titleRect.top,
+          `Mobile: <time> "${pair.timeText}" bottom (${pair.dateRect.bottom}) must sit above <h3> top (${pair.titleRect.top})`
+        );
+      }
+
+      await assertNoHorizontalOverflow(page, 'Mobile Activities Date-Rail');
     });
   });
 
