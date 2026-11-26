@@ -8,6 +8,28 @@ import { chromium } from 'playwright-core';
 const ROOT_DIR = path.resolve(import.meta.dirname, '..');
 const EDGE_PATH = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 
+const DESKTOP_VIEWPORT = { width: 1280, height: 800 };
+const MOBILE_VIEWPORT = { width: 390, height: 844 };
+const JUMP_LINKS = ['About', 'Experience', 'Certificates', 'Activities'];
+
+const PDF_URLS = {
+  cv: './portfolio/Apimongkol-Somjai-CV.pdf',
+  microsoft: './portfolio/certificates/microsoft-certificates.pdf',
+  dataAnalytics:
+    './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%AA%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%81%E0%B8%9A%E0%B8%9A%20Text-based%20%E0%B8%97%E0%B8%B5%E0%B9%88%E0%B9%80%E0%B8%82%E0%B9%89%20(1).pdf',
+  dataGovernance:
+    './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20Data%20Governance%20For%20People%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD.pdf',
+  promptEngineering:
+    './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20Prompt%20Engineering%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%AA%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99.pdf',
+};
+
+const COMMON_LEARN_BASE = 'https://common-learn.com/certificate';
+const VERIFY_URLS = {
+  dataAnalytics: `${COMMON_LEARN_BASE}/certificate-of-achievement-cqk/`,
+  dataGovernance: `${COMMON_LEARN_BASE}/certificate-of-achievement-data-governance-for-people-a0r/`,
+  promptEngineering: `${COMMON_LEARN_BASE}/certificate-of-achievement-prompt-engineering-g5u/`,
+};
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.jpg': 'image/jpeg',
@@ -73,6 +95,27 @@ describe('Portfolio standalone page', () => {
     if (server) await new Promise((resolve) => server.close(resolve));
   });
 
+  async function withPage(viewport, fn) {
+    const page = await browser.newPage({ viewport });
+    try {
+      await page.goto(baseUrl, { waitUntil: 'networkidle' });
+      return await fn(page);
+    } finally {
+      await page.close();
+    }
+  }
+
+  async function assertNoHorizontalOverflow(page, label) {
+    const overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    assert.ok(
+      overflow.scrollWidth <= overflow.clientWidth,
+      `${label} horizontal overflow: scrollWidth=${overflow.scrollWidth} > clientWidth=${overflow.clientWidth}`
+    );
+  }
+
   it('serves standalone index.html with inlined CSS, no Tailwind CDN, header links, and loaded cover/avatar images', async () => {
     const htmlPath = path.join(ROOT_DIR, 'index.html');
     assert.ok(fs.existsSync(htmlPath), 'index.html must exist at repo root');
@@ -81,22 +124,18 @@ describe('Portfolio standalone page', () => {
     assert.match(html, /<style>[\s\S]+<\/style>/, 'compiled CSS must be inlined in <style>');
     assert.doesNotMatch(html, /cdn\.tailwindcss\.com/, 'must not include Tailwind CDN runtime script');
 
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
-      const response = await page.goto(baseUrl, { waitUntil: 'networkidle' });
-      assert.equal(response.status(), 200);
-
+    await withPage(DESKTOP_VIEWPORT, async (page) => {
       const header = page.locator('header');
       await header.waitFor({ state: 'visible' });
       const headerText = await header.innerText();
       assert.match(headerText, /Apimongkol Somjai/);
-      for (const label of ['About', 'Experience', 'Certificates', 'Activities', 'Download CV']) {
+      for (const label of [...JUMP_LINKS, 'Download CV']) {
         assert.match(headerText, new RegExp(label));
       }
 
       const cvHref = await header.getByRole('link', { name: /Download CV/i }).getAttribute('href');
-      assert.equal(cvHref, './portfolio/Apimongkol-Somjai-CV.pdf');
-      const cvRes = await page.request.get(`${baseUrl}/portfolio/Apimongkol-Somjai-CV.pdf`);
+      assert.equal(cvHref, PDF_URLS.cv);
+      const cvRes = await page.request.get(new URL(PDF_URLS.cv, baseUrl).toString());
       assert.equal(cvRes.status(), 200);
 
       const images = await page.evaluate(() =>
@@ -108,16 +147,11 @@ describe('Portfolio standalone page', () => {
       );
       assert.ok(images.some((img) => img.src === './cover.jpg' && img.complete && img.naturalWidth > 0), 'cover.jpg must load');
       assert.ok(images.some((img) => img.src === './me.jpg' && img.complete && img.naturalWidth > 0), 'me.jpg must load');
-    } finally {
-      await page.close();
-    }
+    });
   });
 
   it('renders left identity sidebar with About, Contact + Copy Email, and categorized Tools & Skills', async () => {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
-      await page.goto(baseUrl, { waitUntil: 'networkidle' });
-
+    await withPage(DESKTOP_VIEWPORT, async (page) => {
       const sidebar = page.locator('aside');
       await sidebar.waitFor({ state: 'visible' });
       const sidebarText = await sidebar.innerText();
@@ -157,42 +191,31 @@ describe('Portfolio standalone page', () => {
       ]) {
         assert.match(sidebarText, new RegExp(skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
       }
-    } finally {
-      await page.close();
-    }
+    });
   });
 
-  it('renders Professional Summary in right column and has zero horizontal overflow on desktop and mobile', async () => {
-    for (const viewport of [
-      { width: 1280, height: 800 },
-      { width: 390, height: 844 },
-    ]) {
-      const page = await browser.newPage({ viewport });
-      try {
-        await page.goto(baseUrl, { waitUntil: 'networkidle' });
-
+  it('renders Professional Summary, visible jump links, and zero horizontal overflow on desktop and mobile', async () => {
+    for (const viewport of [DESKTOP_VIEWPORT, MOBILE_VIEWPORT]) {
+      await withPage(viewport, async (page) => {
         const summaryHeading = page.getByRole('heading', { name: /Professional Summary/i });
         await summaryHeading.waitFor({ state: 'visible' });
 
-        const overflow = await page.evaluate(() => ({
-          scrollWidth: document.documentElement.scrollWidth,
-          clientWidth: document.documentElement.clientWidth,
-        }));
-        assert.ok(
-          overflow.scrollWidth <= overflow.clientWidth,
-          `Horizontal overflow at ${viewport.width}px: scrollWidth=${overflow.scrollWidth} > clientWidth=${overflow.clientWidth}`
-        );
-      } finally {
-        await page.close();
-      }
+        const header = page.locator('header');
+        for (const label of JUMP_LINKS) {
+          assert.equal(
+            await header.getByRole('link', { name: label }).isVisible(),
+            true,
+            `Jump link "${label}" must be visible at ${viewport.width}px`
+          );
+        }
+
+        await assertNoHorizontalOverflow(page, `Viewport ${viewport.width}px`);
+      });
     }
   });
 
   it('renders Work Experience card with both roles newest-first, dates, and responsibility bullets', async () => {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
-      await page.goto(baseUrl, { waitUntil: 'networkidle' });
-
+    await withPage(DESKTOP_VIEWPORT, async (page) => {
       const section = page.locator('#experience');
       await section.waitFor({ state: 'visible' });
 
@@ -223,16 +246,11 @@ describe('Portfolio standalone page', () => {
       ]) {
         assert.match(text, new RegExp(bullet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
       }
-    } finally {
-      await page.close();
-    }
+    });
   });
 
   it('renders Activities card with all three activities newest-first, dates, locations, and descriptions', async () => {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
-      await page.goto(baseUrl, { waitUntil: 'networkidle' });
-
+    await withPage(DESKTOP_VIEWPORT, async (page) => {
       const section = page.locator('#activities');
       assert.equal(await section.isVisible(), true, 'Activities section must be visible');
 
@@ -261,16 +279,11 @@ describe('Portfolio standalone page', () => {
 
       assert.match(text, /March 2023/);
       assert.match(text, /Ban Samrong School, Ubon Ratchathani/);
-    } finally {
-      await page.close();
-    }
+    });
   });
 
   it('scrolls smoothly to Experience and Activities when clicking header jump links', async () => {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 600 } });
-    try {
-      await page.goto(baseUrl, { waitUntil: 'networkidle' });
-
+    await withPage({ width: 1280, height: 600 }, async (page) => {
       const scrollBehavior = await page.evaluate(
         () => getComputedStyle(document.documentElement).scrollBehavior
       );
@@ -300,16 +313,11 @@ describe('Portfolio standalone page', () => {
         null,
         { timeout: 3000 }
       );
-    } finally {
-      await page.close();
-    }
+    });
   });
 
   it('renders all four certificates and serves all five PDF documents with HTTP 200', async () => {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
-      await page.goto(baseUrl, { waitUntil: 'networkidle' });
-
+    await withPage(DESKTOP_VIEWPORT, async (page) => {
       const certSection = page.locator('#certificates');
       await certSection.waitFor({ state: 'visible' });
       const certText = await certSection.innerText();
@@ -323,28 +331,15 @@ describe('Portfolio standalone page', () => {
       assert.match(certText, /Prompt Engineering/);
       assert.match(certText, /Common-learn/);
 
-      const expectedPdfUrls = [
-        './portfolio/Apimongkol-Somjai-CV.pdf',
-        './portfolio/certificates/microsoft-certificates.pdf',
-        './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%AA%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%81%E0%B8%9A%E0%B8%9A%20Text-based%20%E0%B8%97%E0%B8%B5%E0%B9%88%E0%B9%80%E0%B8%82%E0%B9%89%20(1).pdf',
-        './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20Data%20Governance%20For%20People%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD.pdf',
-        './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20Prompt%20Engineering%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%AA%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99.pdf',
-      ];
-
-      for (const relUrl of expectedPdfUrls) {
+      for (const relUrl of Object.values(PDF_URLS)) {
         const res = await page.request.get(new URL(relUrl, baseUrl).toString());
         assert.equal(res.status(), 200, `Expected HTTP 200 for ${relUrl}`);
       }
-    } finally {
-      await page.close();
-    }
+    });
   });
 
   it('opens shared PDF preview modal for CV and certificates, enforces Verify Credential visibility, and restores focus/scroll on close', async () => {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
-      await page.goto(baseUrl, { waitUntil: 'networkidle' });
-
+    await withPage(DESKTOP_VIEWPORT, async (page) => {
       const modal = page.locator('#pdf-modal');
       assert.equal(await modal.getAttribute('role'), 'dialog');
       assert.equal(await modal.getAttribute('aria-modal'), 'true');
@@ -354,36 +349,36 @@ describe('Portfolio standalone page', () => {
         {
           name: /Preview \/ Download CV/i,
           title: 'Curriculum Vitae — Apimongkol Somjai',
-          url: './portfolio/Apimongkol-Somjai-CV.pdf',
+          url: PDF_URLS.cv,
           verifyUrl: null,
           closeMethod: 'button',
         },
         {
           name: /Microsoft Excel Proficiency Assessment/i,
           title: 'Microsoft Excel Proficiency Assessment',
-          url: './portfolio/certificates/microsoft-certificates.pdf',
+          url: PDF_URLS.microsoft,
           verifyUrl: null,
           closeMethod: 'backdrop',
         },
         {
           name: /Data Analytics For Business/i,
           title: 'Data Analytics For Business',
-          url: './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%AA%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%81%E0%B8%9A%E0%B8%9A%20Text-based%20%E0%B8%97%E0%B8%B5%E0%B9%88%E0%B9%80%E0%B8%82%E0%B9%89%20(1).pdf',
-          verifyUrl: 'https://common-learn.com/certificate/certificate-of-achievement-cqk/',
+          url: PDF_URLS.dataAnalytics,
+          verifyUrl: VERIFY_URLS.dataAnalytics,
           closeMethod: 'escape',
         },
         {
           name: /Data Governance For People/i,
           title: 'Data Governance For People',
-          url: './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20Data%20Governance%20For%20People%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD.pdf',
-          verifyUrl: 'https://common-learn.com/certificate/certificate-of-achievement-data-governance-for-people-a0r/',
+          url: PDF_URLS.dataGovernance,
+          verifyUrl: VERIFY_URLS.dataGovernance,
           closeMethod: 'button',
         },
         {
           name: /Prompt Engineering/i,
           title: 'Prompt Engineering',
-          url: './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20Prompt%20Engineering%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%AA%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99.pdf',
-          verifyUrl: 'https://common-learn.com/certificate/certificate-of-achievement-prompt-engineering-g5u/',
+          url: PDF_URLS.promptEngineering,
+          verifyUrl: VERIFY_URLS.promptEngineering,
           closeMethod: 'escape',
         },
       ];
@@ -432,16 +427,11 @@ describe('Portfolio standalone page', () => {
         const focusRestored = await trigger.evaluate((el) => document.activeElement === el);
         assert.equal(focusRestored, true, `Focus must return to trigger for ${item.title}`);
       }
-    } finally {
-      await page.close();
-    }
+    });
   });
 
   it('omits empty Works/Projects placeholder, avoids emoji/pulsing/uppercase-label slop, and supports modal on mobile 390px', async () => {
-    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    try {
-      await page.goto(baseUrl, { waitUntil: 'networkidle' });
-
+    await withPage(MOBILE_VIEWPORT, async (page) => {
       const audit = await page.evaluate(() => {
         const bodyText = document.body.innerText;
         const headings = Array.from(document.querySelectorAll('h1, h2, h3')).map((h) => ({
@@ -473,19 +463,10 @@ describe('Portfolio standalone page', () => {
       assert.equal(await modal.getByRole('link', { name: /Download PDF/i }).isVisible(), true);
       assert.equal(await modal.locator('#pdf-modal-verify').isVisible(), true);
 
-      const overflow = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
-        clientWidth: document.documentElement.clientWidth,
-      }));
-      assert.ok(
-        overflow.scrollWidth <= overflow.clientWidth,
-        `Mobile modal horizontal overflow: scrollWidth=${overflow.scrollWidth} > clientWidth=${overflow.clientWidth}`
-      );
+      await assertNoHorizontalOverflow(page, 'Mobile modal');
 
       await modal.getByRole('button', { name: /Close/i }).click();
       await modal.waitFor({ state: 'hidden' });
-    } finally {
-      await page.close();
-    }
+    });
   });
 });
