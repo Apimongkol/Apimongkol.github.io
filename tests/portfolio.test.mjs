@@ -10,7 +10,7 @@ const EDGE_PATH = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge
 
 const DESKTOP_VIEWPORT = { width: 1280, height: 800 };
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
-const JUMP_LINKS = ['About', 'Experience', 'Certificates', 'Activities'];
+const JUMP_LINKS = ['About', 'Experience', 'Projects', 'Certificates', 'Activities'];
 
 const PDF_URLS = {
   cv: './portfolio/Apimongkol-Somjai-CV.pdf',
@@ -279,6 +279,36 @@ describe('Portfolio standalone page', () => {
 
       assert.match(text, /March 2023/);
       assert.match(text, /Ban Samrong School, Ubon Ratchathani/);
+    });
+  });
+
+  it('renders Academic Projects card with DELTA Stock & Financial Analysis and opens its PDF deck in the modal', async () => {
+    await withPage(DESKTOP_VIEWPORT, async (page) => {
+      const section = page.locator('#projects');
+      await section.waitFor({ state: 'visible' });
+
+      const text = await section.innerText();
+      assert.match(text, /Academic Projects/);
+      assert.match(text, /DELTA Stock & Financial Analysis/);
+      assert.match(text, /Financial Data Analysis/);
+      assert.match(text, /Revenue Forecasting/);
+      assert.match(text, /Investment Thesis/);
+
+      const deltaUrl = './portfolio/academic-projects/delta/Delta.pdf';
+      const res = await page.request.get(new URL(deltaUrl, baseUrl).toString());
+      assert.equal(res.status(), 200, 'Expected HTTP 200 for Delta.pdf');
+
+      const trigger = section.locator('[data-doc-trigger]');
+      await trigger.click();
+
+      const modal = page.locator('#pdf-modal');
+      await modal.waitFor({ state: 'visible' });
+      assert.equal(await modal.locator('#pdf-modal-title').innerText(), 'DELTA Stock & Financial Analysis');
+      assert.equal(await modal.locator('iframe').getAttribute('src'), deltaUrl);
+      assert.equal(await modal.locator('#pdf-modal-verify').isVisible(), false);
+
+      await page.keyboard.press('Escape');
+      await modal.waitFor({ state: 'hidden' });
     });
   });
 
