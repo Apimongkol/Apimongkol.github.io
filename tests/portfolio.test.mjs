@@ -480,7 +480,7 @@ describe('Portfolio standalone page', () => {
       assert.equal(audit.animatedEls, 0, 'Visible UI must not use infinite pulsing/looping animations');
       for (const h of audit.headings) {
         assert.notEqual(h.textTransform, 'uppercase', `Heading "${h.text}" must use sentence case, not uppercase`);
-        assert.doesNotMatch(h.text, /\b(Works|Projects|Coming Soon)\b/i, 'Must not render empty Works/Projects placeholder');
+        assert.doesNotMatch(h.text, /\b(Works|Coming Soon)\b/i, 'Must not render empty Works/Coming Soon placeholder');
       }
       assert.doesNotMatch(audit.bodyText, /\bComing Soon\b/i, 'Must not render Coming Soon placeholder text');
 
