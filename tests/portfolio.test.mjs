@@ -436,4 +436,56 @@ describe('Portfolio standalone page', () => {
       await page.close();
     }
   });
+
+  it('omits empty Works/Projects placeholder, avoids emoji/pulsing/uppercase-label slop, and supports modal on mobile 390px', async () => {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    try {
+      await page.goto(baseUrl, { waitUntil: 'networkidle' });
+
+      const audit = await page.evaluate(() => {
+        const bodyText = document.body.innerText;
+        const headings = Array.from(document.querySelectorAll('h1, h2, h3')).map((h) => ({
+          text: h.innerText.trim(),
+          textTransform: getComputedStyle(h).textTransform,
+        }));
+        const hasEmoji = /\p{Extended_Pictographic}/u.test(bodyText);
+        const animatedEls = Array.from(document.querySelectorAll('*')).filter((el) => {
+          const style = getComputedStyle(el);
+          return style.animationName !== 'none' && style.animationIterationCount === 'infinite';
+        }).length;
+        return { bodyText, headings, hasEmoji, animatedEls };
+      });
+
+      assert.equal(audit.hasEmoji, false, 'Visible UI must not contain emoji characters');
+      assert.equal(audit.animatedEls, 0, 'Visible UI must not use infinite pulsing/looping animations');
+      for (const h of audit.headings) {
+        assert.notEqual(h.textTransform, 'uppercase', `Heading "${h.text}" must use sentence case, not uppercase`);
+        assert.doesNotMatch(h.text, /\b(Works|Projects|Coming Soon)\b/i, 'Must not render empty Works/Projects placeholder');
+      }
+      assert.doesNotMatch(audit.bodyText, /\bComing Soon\b/i, 'Must not render Coming Soon placeholder text');
+
+      const trigger = page.locator('[data-doc-trigger]', { hasText: /Data Analytics For Business/i });
+      await trigger.click();
+      const modal = page.locator('#pdf-modal');
+      await modal.waitFor({ state: 'visible' });
+
+      assert.equal(await modal.getByRole('link', { name: /Open in New Tab/i }).isVisible(), true);
+      assert.equal(await modal.getByRole('link', { name: /Download PDF/i }).isVisible(), true);
+      assert.equal(await modal.locator('#pdf-modal-verify').isVisible(), true);
+
+      const overflow = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }));
+      assert.ok(
+        overflow.scrollWidth <= overflow.clientWidth,
+        `Mobile modal horizontal overflow: scrollWidth=${overflow.scrollWidth} > clientWidth=${overflow.clientWidth}`
+      );
+
+      await modal.getByRole('button', { name: /Close/i }).click();
+      await modal.waitFor({ state: 'hidden' });
+    } finally {
+      await page.close();
+    }
+  });
 });
