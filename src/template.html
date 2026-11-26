@@ -201,37 +201,42 @@
           </p>
         </section>
 
-        <!-- Ticket 02: Work Experience (#experience) -->
+        <!-- Ticket 01: Work Experience Date-Rail Timeline (#experience) -->
         <section id="experience" aria-labelledby="experience-heading" class="bg-white border border-slate-200 rounded-lg p-6 scroll-mt-20">
           <h2 id="experience-heading" class="text-base font-semibold text-slate-900 mb-5">Work Experience</h2>
-          <div class="space-y-6">
-            <article class="space-y-2.5">
-              <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
-                <h3 class="text-sm font-semibold text-slate-900">Finance Assistant (Family-Owned Fuel Station)</h3>
-                <span class="text-xs font-medium text-slate-500 tabular-nums whitespace-nowrap">2019 – Present</span>
+          <ol class="relative">
+            <li class="relative grid grid-cols-[1.25rem_minmax(0,1fr)] sm:grid-cols-[6.75rem_1.25rem_minmax(0,1fr)] gap-x-3 pb-6 last:pb-0">
+              <time class="col-start-2 row-start-1 sm:col-start-1 sm:row-start-1 sm:text-right text-xs font-medium text-slate-500 tabular-nums leading-5 mb-1 sm:mb-0 whitespace-nowrap">2019 – Present</time>
+              <div class="col-start-1 row-start-1 row-span-2 sm:col-start-2 sm:row-span-1 relative flex justify-center" aria-hidden="true">
+                <span class="absolute top-3 -bottom-6 w-px bg-slate-200"></span>
+                <span data-timeline-node="active" class="relative z-10 mt-1.5 h-2.5 w-2.5 rounded-full bg-blue-700 ring-4 ring-white"></span>
               </div>
-              <ul class="list-disc pl-5 space-y-1.5 text-sm text-slate-600 leading-relaxed">
-                <li>Maintained accurate daily records of income, expenses, and cash flow.</li>
-                <li>Monitored fuel and inventory levels and conducted regular stock checks.</li>
-                <li>Updated daily fuel prices in line with business requirements and market conditions.</li>
-                <li>Provided customer service and supported day-to-day station operations.</li>
-              </ul>
-            </article>
+              <article class="col-start-2 row-start-2 sm:col-start-3 sm:row-start-1 space-y-2.5 min-w-0">
+                <h3 class="text-sm font-semibold text-slate-900 leading-5">Finance Assistant (Family-Owned Fuel Station)</h3>
+                <ul class="list-disc pl-5 space-y-1.5 text-sm text-slate-600 leading-relaxed">
+                  <li>Maintained accurate daily records of income, expenses, and cash flow.</li>
+                  <li>Monitored fuel and inventory levels and conducted regular stock checks.</li>
+                  <li>Updated daily fuel prices in line with business requirements and market conditions.</li>
+                  <li>Provided customer service and supported day-to-day station operations.</li>
+                </ul>
+              </article>
+            </li>
 
-            <hr class="border-slate-100" />
-
-            <article class="space-y-2.5">
-              <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
-                <h3 class="text-sm font-semibold text-slate-900">Part-Time Server Restaurant</h3>
-                <span class="text-xs font-medium text-slate-500 tabular-nums whitespace-nowrap">May 2023</span>
+            <li class="relative grid grid-cols-[1.25rem_minmax(0,1fr)] sm:grid-cols-[6.75rem_1.25rem_minmax(0,1fr)] gap-x-3 pb-6 last:pb-0">
+              <time class="col-start-2 row-start-1 sm:col-start-1 sm:row-start-1 sm:text-right text-xs font-medium text-slate-500 tabular-nums leading-5 mb-1 sm:mb-0 whitespace-nowrap">May 2023</time>
+              <div class="col-start-1 row-start-1 row-span-2 sm:col-start-2 sm:row-span-1 relative flex justify-center" aria-hidden="true">
+                <span data-timeline-node="past" class="relative z-10 mt-1.5 h-2.5 w-2.5 rounded-full bg-white border-2 border-slate-300 ring-4 ring-white"></span>
               </div>
-              <ul class="list-disc pl-5 space-y-1.5 text-sm text-slate-600 leading-relaxed">
-                <li>Assisted with daily restaurant operations and collaborated with team members.</li>
-                <li>Welcomed customers, assisted with menu selections, and responded to their requests.</li>
-                <li>Served food and beverages and took customer orders accurately.</li>
-              </ul>
-            </article>
-          </div>
+              <article class="col-start-2 row-start-2 sm:col-start-3 sm:row-start-1 space-y-2.5 min-w-0">
+                <h3 class="text-sm font-semibold text-slate-900 leading-5">Part-Time Server Restaurant</h3>
+                <ul class="list-disc pl-5 space-y-1.5 text-sm text-slate-600 leading-relaxed">
+                  <li>Assisted with daily restaurant operations and collaborated with team members.</li>
+                  <li>Welcomed customers, assisted with menu selections, and responded to their requests.</li>
+                  <li>Served food and beverages and took customer orders accurately.</li>
+                </ul>
+              </article>
+            </li>
+          </ol>
         </section>
 
         <!-- Academic Projects (#projects) -->
