@@ -304,4 +304,136 @@ describe('Portfolio standalone page', () => {
       await page.close();
     }
   });
+
+  it('renders all four certificates and serves all five PDF documents with HTTP 200', async () => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    try {
+      await page.goto(baseUrl, { waitUntil: 'networkidle' });
+
+      const certSection = page.locator('#certificates');
+      await certSection.waitFor({ state: 'visible' });
+      const certText = await certSection.innerText();
+
+      assert.match(certText, /Microsoft Excel Proficiency Assessment/);
+      assert.match(certText, /Faculty of Management Science, Ubon Ratchathani University/);
+      assert.match(certText, /20 March 2026/);
+
+      assert.match(certText, /Data Analytics For Business/);
+      assert.match(certText, /Data Governance For People/);
+      assert.match(certText, /Prompt Engineering/);
+      assert.match(certText, /Common-learn/);
+
+      const expectedPdfUrls = [
+        './portfolio/Apimongkol-Somjai-CV.pdf',
+        './portfolio/certificates/microsoft-certificates.pdf',
+        './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%AA%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%81%E0%B8%9A%E0%B8%9A%20Text-based%20%E0%B8%97%E0%B8%B5%E0%B9%88%E0%B9%80%E0%B8%82%E0%B9%89%20(1).pdf',
+        './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20Data%20Governance%20For%20People%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD.pdf',
+        './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20Prompt%20Engineering%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%AA%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99.pdf',
+      ];
+
+      for (const relUrl of expectedPdfUrls) {
+        const res = await page.request.get(new URL(relUrl, baseUrl).toString());
+        assert.equal(res.status(), 200, `Expected HTTP 200 for ${relUrl}`);
+      }
+    } finally {
+      await page.close();
+    }
+  });
+
+  it('opens shared PDF preview modal for CV and certificates, enforces Verify Credential visibility, and restores focus/scroll on close', async () => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    try {
+      await page.goto(baseUrl, { waitUntil: 'networkidle' });
+
+      const modal = page.locator('#pdf-modal');
+      assert.equal(await modal.getAttribute('role'), 'dialog');
+      assert.equal(await modal.getAttribute('aria-modal'), 'true');
+      assert.equal(await modal.isVisible(), false);
+
+      const cases = [
+        {
+          name: /Preview \/ Download CV/i,
+          title: 'Curriculum Vitae — Apimongkol Somjai',
+          url: './portfolio/Apimongkol-Somjai-CV.pdf',
+          verifyUrl: null,
+          closeMethod: 'button',
+        },
+        {
+          name: /Microsoft Excel Proficiency Assessment/i,
+          title: 'Microsoft Excel Proficiency Assessment',
+          url: './portfolio/certificates/microsoft-certificates.pdf',
+          verifyUrl: null,
+          closeMethod: 'backdrop',
+        },
+        {
+          name: /Data Analytics For Business/i,
+          title: 'Data Analytics For Business',
+          url: './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%AA%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%81%E0%B8%9A%E0%B8%9A%20Text-based%20%E0%B8%97%E0%B8%B5%E0%B9%88%E0%B9%80%E0%B8%82%E0%B9%89%20(1).pdf',
+          verifyUrl: 'https://common-learn.com/certificate/certificate-of-achievement-cqk/',
+          closeMethod: 'escape',
+        },
+        {
+          name: /Data Governance For People/i,
+          title: 'Data Governance For People',
+          url: './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20Data%20Governance%20For%20People%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD.pdf',
+          verifyUrl: 'https://common-learn.com/certificate/certificate-of-achievement-data-governance-for-people-a0r/',
+          closeMethod: 'button',
+        },
+        {
+          name: /Prompt Engineering/i,
+          title: 'Prompt Engineering',
+          url: './portfolio/certificates/Certificate%20of%20Achievement%20%E2%80%93%20Prompt%20Engineering%20%E2%80%93%20%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B9%80%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%20Data%20%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%84%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%AA%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99.pdf',
+          verifyUrl: 'https://common-learn.com/certificate/certificate-of-achievement-prompt-engineering-g5u/',
+          closeMethod: 'escape',
+        },
+      ];
+
+      for (const item of cases) {
+        const trigger = page.locator('[data-doc-trigger]', { hasText: item.name });
+        await trigger.focus();
+        await trigger.click();
+
+        await modal.waitFor({ state: 'visible' });
+        assert.equal(await modal.locator('#pdf-modal-title').innerText(), item.title);
+        assert.equal(await modal.locator('iframe').getAttribute('src'), item.url);
+
+        const openLink = modal.getByRole('link', { name: /Open in New Tab/i });
+        assert.equal(await openLink.getAttribute('href'), item.url);
+
+        const downloadLink = modal.getByRole('link', { name: /Download/i });
+        assert.equal(await downloadLink.getAttribute('href'), item.url);
+
+        const verifyLink = modal.locator('#pdf-modal-verify');
+        if (item.verifyUrl) {
+          assert.equal(await verifyLink.isVisible(), true);
+          assert.equal(await verifyLink.getAttribute('href'), item.verifyUrl);
+        } else {
+          assert.equal(await verifyLink.isVisible(), false);
+        }
+
+        const bodyOverflow = await page.evaluate(() => getComputedStyle(document.body).overflow);
+        assert.equal(bodyOverflow, 'hidden');
+
+        if (item.closeMethod === 'button') {
+          await modal.getByRole('button', { name: /Close/i }).click();
+        } else if (item.closeMethod === 'backdrop') {
+          await modal.click({ position: { x: 8, y: 8 } });
+        } else {
+          await page.keyboard.press('Escape');
+        }
+
+        await modal.waitFor({ state: 'hidden' });
+        const iframeSrcAfterClose = await modal.locator('iframe').getAttribute('src');
+        assert.ok(!iframeSrcAfterClose, 'iframe src must be cleared on close');
+
+        const bodyOverflowAfter = await page.evaluate(() => getComputedStyle(document.body).overflow);
+        assert.notEqual(bodyOverflowAfter, 'hidden');
+
+        const focusRestored = await trigger.evaluate((el) => document.activeElement === el);
+        assert.equal(focusRestored, true, `Focus must return to trigger for ${item.title}`);
+      }
+    } finally {
+      await page.close();
+    }
+  });
 });
